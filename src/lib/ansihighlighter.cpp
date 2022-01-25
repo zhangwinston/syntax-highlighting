@@ -20,7 +20,9 @@
 #include <QHash>
 #include <QTextStream>
 
-#include <cmath>
+#include <QStringBuilder>
+//#include <cmath>
+#include <QtMath>
 #include <vector>
 
 using namespace KSyntaxHighlighting;
