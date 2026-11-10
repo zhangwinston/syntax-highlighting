@@ -96,8 +96,8 @@ add_custom_command(
 if (QRC_SYNTAX)
     # generate the qrc file manually, to make dependencies on generated files work...
     add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/qrc_syntax-data.cpp"
-        COMMAND Qt6::rcc --name syntax_data -o "${CMAKE_CURRENT_BINARY_DIR}/qrc_syntax-data.cpp" "${qrc_file}"
-        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/index.katesyntax" ${compressedDefs} "${qrc_file}" Qt6::rcc
+        COMMAND Qt${QT_VERSION_MAJOR}::rcc --name syntax_data -o "${CMAKE_CURRENT_BINARY_DIR}/qrc_syntax-data.cpp" "${qrc_file}"
+        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/index.katesyntax" ${compressedDefs} "${qrc_file}" Qt${QT_VERSION_MAJOR}::rcc
         VERBATIM
     )
     set_source_files_properties("${CMAKE_CURRENT_BINARY_DIR}/qrc_syntax-data.cpp" PROPERTIES SKIP_AUTOMOC ON)
@@ -115,4 +115,4 @@ set_target_properties(SyntaxHighlightingData PROPERTIES
     AUTORCC ON
     POSITION_INDEPENDENT_CODE ON
 )
-target_link_libraries(SyntaxHighlightingData PRIVATE Qt6::Core)
+target_link_libraries(SyntaxHighlightingData PRIVATE Qt${QT_VERSION_MAJOR}::Core)

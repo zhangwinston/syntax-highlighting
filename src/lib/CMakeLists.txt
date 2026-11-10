@@ -87,10 +87,10 @@ target_sources(VSyntaxHighlighting PRIVATE
 
 target_link_libraries(VSyntaxHighlighting
     PUBLIC
-        Qt6::Core
-        Qt6::Gui
+        Qt${QT_VERSION_MAJOR}::Core
+        Qt${QT_VERSION_MAJOR}::Gui
     PRIVATE
-        Qt6::Network
+        Qt${QT_VERSION_MAJOR}::Network
 )
 
 set(Forwarding_Header_Names
