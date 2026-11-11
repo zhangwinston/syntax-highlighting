@@ -261,7 +261,7 @@ void SyntaxHighlighter::applyFolding(int offset, int length, FoldingRegion regio
             if (d->foldingRegions.at(i).id() != region.id() || d->foldingRegions.at(i).type() != FoldingRegion::Begin) {
                 continue;
             }
-            d->foldingRegions.remove(i);
+            d->foldingRegions.removeAt(i);
             return;
         }
         d->foldingRegions.push_back(region);

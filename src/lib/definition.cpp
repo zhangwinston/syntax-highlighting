@@ -25,7 +25,6 @@
 #include <QCborMap>
 #include <QCoreApplication>
 #include <QFile>
-#include <QStringTokenizer>
 #include <QXmlStreamReader>
 
 #include <algorithm>
@@ -482,9 +481,9 @@ bool DefinitionData::loadLanguage(QXmlStreamReader &reader)
     if (name.isEmpty()) {
         return false;
     }
-    const auto names = reader.attributes().value(QLatin1String("alternativeNames"));
-    for (const auto &n : QStringTokenizer(names, u';', Qt::SkipEmptyParts)) {
-        alternativeNames.push_back(n.toString());
+    const QString names = reader.attributes().value(QLatin1String("alternativeNames")).toString();
+    for (const auto &n : names.split(u';', Qt::SkipEmptyParts)) {
+        alternativeNames.push_back(n);
     }
     section = reader.attributes().value(QLatin1String("section")).toString();
     // toFloat instead of toInt for backward compatibility with old Kate files
@@ -495,13 +494,13 @@ bool DefinitionData::loadLanguage(QXmlStreamReader &reader)
     indenter = reader.attributes().value(QLatin1String("indenter")).toString();
     author = reader.attributes().value(QLatin1String("author")).toString();
     license = reader.attributes().value(QLatin1String("license")).toString();
-    const auto exts = reader.attributes().value(QLatin1String("extensions"));
-    for (const auto &ext : QStringTokenizer(exts, u';', Qt::SkipEmptyParts)) {
-        extensions.push_back(ext.toString());
+    const QString exts = reader.attributes().value(QLatin1String("extensions")).toString();
+    for (const auto &ext : exts.split(u';', Qt::SkipEmptyParts)) {
+        extensions.push_back(ext);
     }
-    const auto mts = reader.attributes().value(QLatin1String("mimetype"));
-    for (const auto &mt : QStringTokenizer(mts, u';', Qt::SkipEmptyParts)) {
-        mimetypes.push_back(mt.toString());
+    const QString mts = reader.attributes().value(QLatin1String("mimetype")).toString();
+    for (const auto &mt : mts.split(u';', Qt::SkipEmptyParts)) {
+        mimetypes.push_back(mt);
     }
     if (reader.attributes().hasAttribute(QLatin1String("casesensitive"))) {
         caseSensitive = Xml::attrToBool(reader.attributes().value(QLatin1String("casesensitive"))) ? Qt::CaseSensitive : Qt::CaseInsensitive;
@@ -797,7 +796,7 @@ void DefinitionData::loadSpellchecking(QXmlStreamReader &reader)
             if (reader.name() == QLatin1String("encoding")) {
                 // target character, if not given map to null char to ignore during spell checking
                 const auto charRef = reader.attributes().value(QLatin1String("char"));
-                const auto target = charRef.isEmpty() ? QChar() : charRef.first();
+                const auto target = charRef.isEmpty() ? QChar() : charRef.at(0);
 
                 const auto str = reader.attributes().value(QLatin1String("string"));
                 characterEncodings.push_back({target, str.toString()});
@@ -825,8 +824,8 @@ bool DefinitionData::checkKateVersion(QStringView verStr)
         qCWarning(Log) << "Skipping" << fileName << "due to having no valid kateversion attribute:" << verStr;
         return false;
     }
-    const auto major = verStr.sliced(0, idx).toInt();
-    const auto minor = verStr.sliced(idx + 1).toInt();
+    const auto major = verStr.mid(0, idx).toInt();
+    const auto minor = verStr.mid(idx + 1).toInt();
 
     if (major > KSYNTAXHIGHLIGHTING_VERSION_MAJOR || (major == KSYNTAXHIGHLIGHTING_VERSION_MAJOR && minor > KSYNTAXHIGHLIGHTING_VERSION_MINOR)) {
         qCWarning(Log) << "Skipping" << fileName << "due to being too new, version:" << verStr;

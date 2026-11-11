@@ -82,7 +82,8 @@ void DefinitionDownloaderPrivate::updateDefinition(QXmlStreamReader &parser)
 
     const auto version = parser.attributes().value(QLatin1String("version"));
     if (localDef.version() < version.toFloat()) {
-        Q_EMIT q->informationMessage(QObject::tr("Updating syntax definition for '%1' to version %2…", "@info").arg(name, version));
+        Q_EMIT q->informationMessage(QObject::tr("Updating syntax definition for '%1' to version %2…", "@info")
+                                         .arg(name.toString(), version.toString()));
         downloadDefinition(QUrl(parser.attributes().value(QLatin1String("url")).toString()));
     }
 }

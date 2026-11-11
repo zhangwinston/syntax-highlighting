@@ -12,6 +12,14 @@
 #include <QExplicitlySharedDataPointer>
 #include <QHash>
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#define KSY_STATE_NOEXCEPT_COPY noexcept
+#else
+// QExplicitlySharedDataPointer copy operations are only noexcept in Qt 6,
+// so the defaulted copy operations of State cannot be noexcept on Qt 5.
+#define KSY_STATE_NOEXCEPT_COPY
+#endif
+
 namespace KSyntaxHighlighting
 {
 class State;
@@ -40,10 +48,10 @@ public:
      */
     State();
     State(State &&other) noexcept;
-    State(const State &other) noexcept;
+    State(const State &other) KSY_STATE_NOEXCEPT_COPY;
     ~State();
     State &operator=(State &&rhs) noexcept;
-    State &operator=(const State &rhs) noexcept;
+    State &operator=(const State &rhs) KSY_STATE_NOEXCEPT_COPY;
 
     /*! Compares two states for equality.
      *  For two equal states and identical text input, AbstractHighlighter

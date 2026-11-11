@@ -54,14 +54,22 @@ void HtmlHighlighter::setOutputFile(const QString &fileName)
         return;
     }
     d->out.reset(new QTextStream(d->file.get()));
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     d->out->setEncoding(QStringConverter::Utf8);
+#else
+    d->out->setCodec("UTF-8");
+#endif
 }
 
 void HtmlHighlighter::setOutputFile(FILE *fileHandle)
 {
     Q_D(HtmlHighlighter);
     d->out.reset(new QTextStream(fileHandle, QIODevice::WriteOnly));
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     d->out->setEncoding(QStringConverter::Utf8);
+#else
+    d->out->setCodec("UTF-8");
+#endif
 }
 
 void HtmlHighlighter::highlightFile(const QString &fileName, const QString &title)
@@ -171,11 +179,13 @@ void HtmlHighlighter::highlightData(QIODevice *dev, const QString &title)
 
             const auto textColor = useSelectedText ? format.selectedTextColor(theme).rgba() : format.textColor(theme).rgba();
             if (textColor && textColor != mainTextColor) {
-                buffer += QStringLiteral("color:") + HtmlColor(textColor).sv() + u';';
+                buffer += QStringLiteral("color:") + HtmlColor(textColor).sv().toString()
+                          + QLatin1Char(';');
             }
             const auto bgColor = useSelectedText ? format.selectedBackgroundColor(theme).rgba() : format.backgroundColor(theme).rgba();
             if (bgColor && bgColor != mainBgColor) {
-                buffer += QStringLiteral("background-color:") + HtmlColor(bgColor).sv() + u';';
+                buffer += QStringLiteral("background-color:")
+                          + HtmlColor(bgColor).sv().toString() + QLatin1Char(';');
             }
             if (format.isBold(theme)) {
                 buffer += QStringLiteral("font-weight:bold;");
@@ -237,7 +247,7 @@ void HtmlHighlighter::applyFormat(int offset, int length, const Format &format)
         *d->out << htmlStyle;
     }
 
-    for (QChar ch : QStringView(d->currentLine).sliced(offset, length)) {
+    for (QChar ch : QStringView(d->currentLine).mid(offset, length)) {
         if (ch == u'<')
             *d->out << QStringLiteral("&lt;");
         else if (ch == u'&')

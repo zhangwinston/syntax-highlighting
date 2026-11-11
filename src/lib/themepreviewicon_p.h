@@ -24,7 +24,12 @@ public:
 
     QSize actualSize(const QSize &size, QIcon::Mode mode, QIcon::State state) override;
     QPixmap pixmap(const QSize &size, QIcon::Mode mode, QIcon::State state) override;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
     QPixmap scaledPixmap(const QSize &size, QIcon::Mode mode, QIcon::State state, qreal scale) override;
+#else
+    // QIconEngine::scaledPixmap only became virtual in Qt 6.8; keep a plain member on Qt 5
+    QPixmap scaledPixmap(const QSize &size, QIcon::Mode mode, QIcon::State state, qreal scale);
+#endif
 
 private:
     void paint(QPainter *painter, const QRect &rect, QIcon::Mode mode, QIcon::State state, bool includeFrame);

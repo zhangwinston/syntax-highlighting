@@ -8,7 +8,6 @@
 #include "contextswitch_p.h"
 #include "definition_p.h"
 #include "ksyntaxhighlighting_logging.h"
-#include <QStringTokenizer>
 
 using namespace KSyntaxHighlighting;
 
@@ -21,10 +20,10 @@ void ContextSwitch::resolve(DefinitionData &def, QStringView context)
     while (context.startsWith(QStringLiteral("#pop"))) {
         ++m_popCount;
         if (context.size() > 4 && context.at(4) == QLatin1Char('!')) {
-            context = context.sliced(5);
+            context = context.mid(5);
             break;
         }
-        context = context.sliced(4);
+        context = context.mid(4);
     }
 
     m_isStay = !m_popCount;
@@ -33,10 +32,10 @@ void ContextSwitch::resolve(DefinitionData &def, QStringView context)
         return;
     }
 
-    for (auto contextPart : QStringTokenizer{context, u'!'}) {
+    for (auto contextPart : context.split(u'!')) {
         const qsizetype defNameIndex = contextPart.indexOf(QStringLiteral("##"));
-        auto defName = (defNameIndex <= -1) ? QStringView() : contextPart.sliced(defNameIndex + 2);
-        auto contextName = (defNameIndex <= -1) ? contextPart : contextPart.sliced(0, defNameIndex);
+        auto defName = (defNameIndex <= -1) ? QStringView() : contextPart.mid(defNameIndex + 2);
+        auto contextName = (defNameIndex <= -1) ? contextPart : contextPart.mid(0, defNameIndex);
 
         auto resolvedCtx = def.resolveIncludedContext(defName, contextName);
         if (resolvedCtx.context) {

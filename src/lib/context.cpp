@@ -86,8 +86,8 @@ void Context::resolveIncludes(DefinitionData &def)
         if (idx <= -1) { // local include
             context = def.contextByName(includeContext);
         } else {
-            const auto definitionName = includeContext.sliced(idx + 2);
-            const auto contextName = includeContext.sliced(0, idx);
+            const auto definitionName = includeContext.mid(idx + 2);
+            const auto contextName = includeContext.mid(0, idx);
             auto resolvedContext = def.resolveIncludedContext(definitionName, contextName);
             defData = resolvedContext.def;
             context = resolvedContext.context;

@@ -713,9 +713,9 @@ void fillString(QString &s, int n, QStringView fill)
 {
     if (n > 0) {
         for (; n > fill.size(); n -= fill.size()) {
-            s += fill;
+            s += fill.toString();
         }
-        s += fill.sliced(0, n);
+        s += fill.mid(0, n).toString();
     }
 }
 
@@ -750,7 +750,7 @@ struct GraphLine {
             const int n2 = offset - labelLineLength;
             labelLineLength += n2 + 1;
             fillLine(labelLine, n2);
-            labelLine += QStringView(graphLine).sliced(ps1);
+            labelLine += graphLine.mid(ps1);
         }
     }
 
@@ -850,7 +850,9 @@ public:
 
             for (const auto &fragment : m_highlightedFragments) {
                 auto const &ansiStyle = ansiStyles[fragment.formatId];
-                out << ansiStyle.first << QStringView(currentLine).sliced(fragment.offset, fragment.length) << ansiStyle.second;
+                const auto currentFragment =
+                    QStringView(currentLine).mid(fragment.offset, fragment.length);
+                out << ansiStyle.first << currentFragment << ansiStyle.second;
             }
 
             out << QStringLiteral("\x1b[K\n");
@@ -953,7 +955,7 @@ private:
             m_contextCapture.offsetNext = 0;
             m_contextCapture.lengthNext = 0;
             // truncate the line to deduce the context from the format
-            const auto lineFragment = currentLine.sliced(0, fragment.offset + fragment.length + 1);
+            const auto lineFragment = currentLine.mid(0, fragment.offset + fragment.length + 1);
             newState = m_contextCapture.highlightLine(lineFragment, state);
 
             // Deduced context does not start at the position of the format.
@@ -977,7 +979,7 @@ private:
         if (m_hasStackSizeTrace) {
             // first state is empty
             int stateSize = stateData ? stateData->size() : 0;
-            label = QLatin1Char('(') % QString::number(stateSize) % QLatin1Char(')');
+            label = QLatin1Char('(') + QString::number(stateSize) + QLatin1Char(')');
         }
 
         if (m_hasContextTrace) {
@@ -988,8 +990,12 @@ private:
 
             const auto context = stateData->topContext();
             const auto defDataIt = m_defDataBycontexts.find(context);
-            const auto contextName = (defDataIt != m_defDataBycontexts.end()) ? QString(QLatin1Char('<') % (*defDataIt)->name % QLatin1Char('>')) : QString();
-            return QString(label % contextName % QLatin1Char('[') % context->name() % QLatin1Char(']'));
+            QString contextName;
+            if (defDataIt != m_defDataBycontexts.end()) {
+                contextName = QString(QLatin1Char('<') + (*defDataIt)->name + QLatin1Char('>'));
+            }
+            return QString(label + contextName + QLatin1Char('[') + context->name()
+                           + QLatin1Char(']'));
         }
 
         return label;
@@ -1002,10 +1008,12 @@ private:
         for (auto const &fragment : m_highlightedFragments) {
             GraphLine &line = lineAtOffset(m_formatGraph, fragment.offset);
             auto const &style = ansiStyles[fragment.formatId].first;
-            line.pushLabel(fragment.offset, style % nameStyle % fragment.name % regionStyle, fragment.name.size());
+            line.pushLabel(fragment.offset,
+                           style + nameStyle + fragment.name + regionStyle,
+                           fragment.name.size());
 
             for (GraphLine *pline = m_formatGraph.data(); pline <= &line; ++pline) {
-                pline->pushGraph(fragment.offset, style % graphSymbol % regionStyle, 1);
+                pline->pushGraph(fragment.offset, style + graphSymbol + regionStyle, 1);
             }
         }
 
@@ -1044,7 +1052,7 @@ private:
                 for (GraphLine *pline = m_regionGraph.data(); pline <= endline; ++pline) {
                     // a label can hide a graph
                     if (pline->graphLineLength <= offset) {
-                        pline->pushGraph(offset, style % graphSymbol % regionStyle, 1);
+                        pline->pushGraph(offset, style.toString() + graphSymbol + regionStyle, 1);
                     }
                 }
             };
@@ -1093,7 +1101,10 @@ private:
 
             GraphLine &line = lineAtOffset(m_regionGraph, offsetLabel);
             const auto &style = m_regionStyles[region.depth % m_regionStyles.size()];
-            line.pushLabel(offsetLabel, style % nameStyle % openS % label % closeS % regionStyle, label.size() + openS.size() + closeS.size());
+            line.pushLabel(offsetLabel,
+                           style.toString() + nameStyle + openS.toString() + label
+                               + closeS.toString() + regionStyle,
+                           label.size() + openS.size() + closeS.size());
             pushGraphs(region.offset, &line, style);
 
             // transforms offset into graph index when region is on 1 line
@@ -1304,7 +1315,7 @@ void AnsiHighlighter::highlightData(QIODevice *dev, AnsiFormat format, Options o
         backgroundColorBuffer.append(QLatin1String("\x1b["));
         backgroundColorBuffer.appendBackground(backgroundColor, is256Colors, colorCache);
         foregroundDefaultColor = foregroundColorBuffer.latin1();
-        backgroundDefaultColor = backgroundColorBuffer.latin1().sliced(2);
+        backgroundDefaultColor = backgroundColorBuffer.latin1().mid(2);
     }
 
     int maxId = 0;
@@ -1400,7 +1411,8 @@ void AnsiHighlighter::highlightData(QIODevice *dev, AnsiFormat format, Options o
 
     QTextStream in(dev);
 
-    if (!options.testAnyFlag(Option::TraceAll)) {
+    // QFlags::testAnyFlag() is Qt 6 only; (flags & mask) has the same meaning here
+    if (!(options & Option::TraceAll)) {
         State state;
         QString currentLine;
         const bool isUnbuffered = options.testFlag(Option::Unbuffered);
@@ -1441,5 +1453,5 @@ void AnsiHighlighter::applyFormat(int offset, int length, const Format &format)
 {
     Q_D(AnsiHighlighter);
     auto const &ansiStyle = d->ansiStyles[format.id()];
-    d->out << ansiStyle.first << d->currentLine.sliced(offset, length) << ansiStyle.second;
+    d->out << ansiStyle.first << d->currentLine.mid(offset, length) << ansiStyle.second;
 }

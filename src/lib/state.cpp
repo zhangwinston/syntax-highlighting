@@ -17,7 +17,7 @@ using namespace KSyntaxHighlighting;
 StateData *StateData::reset(State &state)
 {
     auto *p = new StateData();
-    state.d.reset(p);
+    state.d = p;
     return p;
 }
 
@@ -57,13 +57,13 @@ State::State() = default;
 
 State::State(State &&other) noexcept = default;
 
-State::State(const State &other) noexcept = default;
+State::State(const State &other) KSY_STATE_NOEXCEPT_COPY = default;
 
 State::~State() = default;
 
 State &State::operator=(State &&other) noexcept = default;
 
-State &State::operator=(const State &other) noexcept = default;
+State &State::operator=(const State &other) KSY_STATE_NOEXCEPT_COPY = default;
 
 bool State::operator==(const State &other) const
 {
@@ -86,5 +86,5 @@ bool State::indentationBasedFoldingEnabled() const
 
 std::size_t KSyntaxHighlighting::qHash(const State &state, std::size_t seed)
 {
-    return state.d ? qHashMulti(seed, *state.d) : 0;
+    return state.d ? qHash(*state.d, seed) : 0;
 }

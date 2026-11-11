@@ -196,12 +196,22 @@ public:
 using KSyntaxHighlighting::WordDelimiters;
 using KSyntaxHighlighting::Xml::attrToBool;
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 4, 0)
 using namespace Qt::Literals::StringLiterals;
+#endif
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 10, 0)
 static constexpr QStringView operator""_sv(const char16_t *s, std::size_t n)
 {
     return QStringView(s, s + n);
+}
+#endif
+
+// Qt 5 / Qt < 6.4 replacement for the _s QString literal
+#if QT_VERSION < QT_VERSION_CHECK(6, 4, 0)
+static QString operator""_s(const char16_t *str, std::size_t size)
+{
+    return QString::fromUtf16(str, int(size));
 }
 #endif
 
@@ -241,8 +251,8 @@ public:
         bool okVersion = idx > 0;
         if (okVersion) {
             m_currentDefinition->kateVersion = {
-                verStr.sliced(0, idx).toUInt(&okVersion),
-                verStr.sliced(idx + 1).toUInt(&okVersion),
+                verStr.mid(0, idx).toUInt(&okVersion),
+                verStr.mid(idx + 1).toUInt(&okVersion),
             };
         }
         if (!okVersion) {
@@ -456,20 +466,20 @@ public:
                 QString message;
                 message.reserve(128);
                 for (auto &ruleAndInclude : std::as_const(unreachableBy)) {
-                    message += u"line "_sv;
+                    message += QStringLiteral("line ");
                     message += QString::number(ruleAndInclude.rule->line);
-                    message += u" ["_sv;
+                    message += QStringLiteral(" [");
                     message += ruleAndInclude.rule->parentContext->name;
                     if (rule->filename != ruleAndInclude.rule->filename) {
-                        message += u" ("_sv;
+                        message += QStringLiteral(" (");
                         message += ruleAndInclude.rule->filename;
                         message += u')';
                     }
                     if (ruleAndInclude.includeRules) {
-                        message += u" via line "_sv;
+                        message += QStringLiteral(" via line ");
                         message += QString::number(ruleAndInclude.includeRules->line);
                     }
-                    message += u"], "_sv;
+                    message += QStringLiteral("], ");
                 }
                 message.chop(2);
 
@@ -1057,8 +1067,8 @@ private:
         // Parse <keywords ...>
         bool parseKeywords(const QXmlStreamReader &xml)
         {
-            wordDelimiters.append(xml.attributes().value(u"additionalDeliminator"_sv));
-            wordDelimiters.remove(xml.attributes().value(u"weakDeliminator"_sv));
+            wordDelimiters.append(xml.attributes().value(QStringLiteral("additionalDeliminator")));
+            wordDelimiters.remove(xml.attributes().value(QStringLiteral("weakDeliminator")));
             return true;
         }
     };
@@ -1343,8 +1353,10 @@ private:
                                                                    "\\.\\*[?+]?" REG_CHAR "|"
                                                                    "\\[\\^(" REG_ESCAPE_CHAR "|.)\\]\\*[?+]?\\1"
                                                                    ")$"));
-            if ((rule.lookAhead == XmlBool::True || rule.minimal == XmlBool::True || rule.string.contains(u".*?"_sv) || rule.string.contains(u"[^"_sv))
-                && reg.contains(isRange)) {
+            const bool suspicious = rule.lookAhead == XmlBool::True || rule.minimal == XmlBool::True
+                || rule.string.contains(QStringLiteral(".*?"))
+                || rule.string.contains(QStringLiteral("[^"));
+            if (suspicious && reg.contains(isRange)) {
                 qWarning() << rule.filename << "line" << rule.line << "RegExpr should be replaced by RangeDetect:" << rule.string;
                 return false;
             }
@@ -1524,9 +1536,9 @@ private:
 
             // detection of unnecessary capture
             if (regexp.captureCount()) {
-                auto maximalCapture = [](const QStringView(&referenceNames)[9], const QString &s) {
+                auto maximalCapture = [](const QStringView (&referenceNames)[9], const QString &s) {
                     int maxCapture = 9;
-                    while (maxCapture && !s.contains(referenceNames[maxCapture - 1])) {
+                    while (maxCapture && !s.contains(referenceNames[maxCapture - 1].toString())) {
                         --maxCapture;
                     }
                     return maxCapture;
@@ -1607,7 +1619,7 @@ private:
 
             if (rule.isDotRegex) {
                 // search next rule with same column or firstNonSpace
-                int i = &rule - context.rules.data() + 1;
+                int i = &rule - &context.rules.first() + 1;
                 const bool hasColumn = (rule.column != -1);
                 const bool hasFirstNonSpace = (rule.firstNonSpace == XmlBool::True);
                 const bool isSpecial = (hasColumn || hasFirstNonSpace);
@@ -1626,7 +1638,9 @@ private:
                     }
                 }
 
-                auto ruleFilename = (filename == rule.filename) ? QString() : u"in "_sv + rule.filename;
+                auto ruleFilename = (filename == rule.filename)
+                                        ? QString()
+                                        : QStringLiteral("in ") + rule.filename;
                 if (i == context.rules.size()) {
                     if (rule.lookAhead == XmlBool::True && rule.firstNonSpace != XmlBool::True && rule.column == -1 && rule.beginRegion.isEmpty()
                         && rule.endRegion.isEmpty() && !useCapture) {
@@ -1635,7 +1649,9 @@ private:
                     }
                 } else {
                     auto &nextRule = context.rules[i];
-                    auto nextRuleFilename = (filename == nextRule.filename) ? QString() : u"in "_sv + nextRule.filename;
+                    auto nextRuleFilename = (filename == nextRule.filename)
+                                                ? QString()
+                                                : QStringLiteral("in ") + nextRule.filename;
                     qWarning() << filename << "context line" << context.line << "contains unreachable element line" << nextRule.line << nextRuleFilename
                                << "because a dot RegExpr is used line" << rule.line << ruleFilename;
                 }
@@ -1697,7 +1713,8 @@ private:
         }
 
         // catch possible case typos: [A-z] or [a-Z]
-        const int azOffset = std::max(pattern.indexOf(u"A-z"_sv), pattern.indexOf(u"a-Z"_sv));
+        const int azOffset = std::max(pattern.indexOf(QStringLiteral("A-z")),
+                                      pattern.indexOf(QStringLiteral("a-Z")));
         if (azOffset >= 0) {
             qWarning() << filename << "line" << line << "broken regex:" << pattern << "problem: [a-Z] or [A-z] at offset" << azOffset;
             return false;
@@ -1856,13 +1873,13 @@ private:
     bool checkKeywordInclude(const Definition &definition, const Keywords::Items::Item &include) const
     {
         bool containsKeywordName = true;
-        int const idx = include.content.indexOf(u"##"_sv);
+        int const idx = include.content.indexOf(QStringLiteral("##"));
         if (idx == -1) {
             auto it = definition.keywordsList.find(include.content);
             containsKeywordName = (it != definition.keywordsList.end());
         } else {
-            auto defName = include.content.sliced(idx + 2);
-            auto listName = include.content.sliced(0, idx);
+            auto defName = include.content.mid(idx + 2);
+            auto listName = include.content.mid(0, idx);
             auto it = m_definitions.find(defName);
             if (it == m_definitions.end()) {
                 qWarning() << definition.filename << "line" << include.line << "unknown definition in" << include.content;
@@ -2074,7 +2091,7 @@ private:
         // Iterates over all the rules, including those in includedRules
         struct RuleIterator {
             RuleIterator(const QList<ObservableRule> &rules, const ObservableRule &endRule)
-                : m_end(&endRule - rules.data())
+                : m_end(&endRule - &rules.first())
                 , m_rules(rules)
             {
             }
@@ -2424,7 +2441,7 @@ private:
                 if (rule.dynamic == XmlBool::True) {
                     static const QRegularExpression dynamicPosition(QStringLiteral(R"(^(?:[^%]*|%(?![1-9]))*)"));
                     auto result = dynamicPosition.match(rule.string);
-                    s = s.sliced(0, result.capturedLength());
+                    s = s.mid(0, result.capturedLength());
                     // check if hidden by DetectChar/AnyChar
                     if (s.size() + 2 <= rule.string.size()) {
                         auto tables = CharTableArray(dynamicDetectChars, rule);
@@ -2441,7 +2458,7 @@ private:
                     const qsizetype result = regularChars.match(rule.string).capturedLength();
                     const qsizetype pos = qMin(result, s.size());
                     if (rule.string.indexOf(u'|', pos) < pos) {
-                        sanitizedRegex = rule.string.sliced(0, qMin(result, s.size()));
+                        sanitizedRegex = rule.string.mid(0, qMin(result, s.size()));
                         sanitizedRegex.replace(sanitizeChars, QStringLiteral("\\1"));
                         s = sanitizedRegex;
                     } else {
@@ -2693,15 +2710,15 @@ private:
                 QString message;
                 message.reserve(128);
                 for (auto &ruleAndInclude : std::as_const(unreachableBy)) {
-                    message += u"line "_sv;
+                    message += QStringLiteral("line ");
                     if (ruleAndInclude.includeRules) {
                         message += QString::number(ruleAndInclude.includeRules->line);
-                        message += u" [by '"_sv;
+                        message += QStringLiteral(" [by '");
                         message += ruleAndInclude.includeRules->context.name;
-                        message += u"' line "_sv;
+                        message += QStringLiteral("' line ");
                         message += QString::number(ruleAndInclude.rule->line);
                         if (ruleAndInclude.includeRules->filename != ruleAndInclude.rule->filename) {
-                            message += u" ("_sv;
+                            message += QStringLiteral(" (");
                             message += ruleAndInclude.rule->filename;
                             message += u')';
                         }
@@ -2709,7 +2726,7 @@ private:
                     } else {
                         message += QString::number(ruleAndInclude.rule->line);
                     }
-                    message += u", "_sv;
+                    message += QStringLiteral(", ");
                 }
                 message.chop(2);
                 qWarning() << filename << "line" << rule.line << "unreachable rule by" << message;
@@ -2824,13 +2841,13 @@ private:
             }
         } else {
             while (name.startsWith(u"#pop"_sv)) {
-                name = name.sliced(4);
+                name = name.mid(4);
                 ++contextName.popCount;
             }
 
             if (contextName.popCount && !name.isEmpty()) {
                 if (name.startsWith(u'!') && name.size() > 1) {
-                    name = name.sliced(1);
+                    name = name.mid(1);
                 } else {
                     qWarning() << definition.filename << "line" << line << "'!' missing between '#pop' and context name in " << attrName << "="
                                << contextName.name;
@@ -2839,7 +2856,7 @@ private:
             }
 
             if (!name.isEmpty()) {
-                for (auto contextPart : QStringTokenizer{name, u'!'}) {
+                for (auto contextPart : name.split(u'!')) {
                     auto *ctx = resolveContextPartName(definition, contextPart, line, attrName, contextName.name);
                     if (ctx) {
                         contextName.contexts.push_back(ctx);
@@ -2861,7 +2878,7 @@ private:
         auto *contextMap = &definition.contexts;
         const int idx = contextNamePart.indexOf(u"##"_sv);
         if (idx != -1) {
-            auto defName = contextNamePart.sliced(idx + 2);
+            auto defName = contextNamePart.mid(idx + 2);
             auto it = m_definitions.find(defName.toString());
             if (it == m_definitions.end()) {
                 qWarning() << definition.filename << "line" << line << "unknown definition" << defName << "in" << attrName << "=" << originalContext;
@@ -2870,7 +2887,7 @@ private:
             }
             contextMap = &it->contexts;
             definition.referencedDefinitions.insert(&*it);
-            contextNamePart = contextNamePart.sliced(0, idx);
+            contextNamePart = contextNamePart.mid(0, idx);
             if (contextNamePart.isEmpty()) {
                 contextNamePart = it->firstContextName;
             }
@@ -2932,12 +2949,13 @@ public:
             const auto tagName = xml.name();
             if (tagName == u"contexts"_sv) {
                 m_inContexts = true;
-                m_data += u"<contexts"_sv;
+                m_data += QStringLiteral("<contexts");
             } else if (m_inContexts) {
                 Context &ctx = (m_contexts.empty() || tagName == u"context"_sv) ? m_contexts.emplace_back() : m_contexts.back();
                 QString &out = ctx.data;
                 const bool isDetect2Chars = tagName == u"Detect2Chars"_sv;
-                out += u'<' % (isDetect2Chars ? u"StringDetect"_sv : tagName);
+                out += u'<';
+                out += isDetect2Chars ? QStringLiteral("StringDetect") : tagName.toString();
 
                 auto attrs = xml.attributes();
                 sortAttributes(attrs);
@@ -2948,7 +2966,7 @@ public:
                     if (isDetect2Chars && (attrName == u"char"_sv || attrName == u"char1"_sv)) {
                         if (attrName == u"char"_sv) {
                             const auto ch0 = value;
-                            const auto ch1 = attrs.value(u"char1"_sv);
+                            const auto ch1 = attrs.value(QStringLiteral("char1"));
                             QChar chars[]{ch0.isEmpty() ? u' ' : ch0[0], ch1.isEmpty() ? u' ' : ch1[0]};
                             writeXmlAttribute(out, u"String"_sv, QStringView(chars, 2), tagName);
                         }
@@ -2964,12 +2982,12 @@ public:
                             bool hasPop = false;
                             while (value.startsWith(u"#pop"_sv)) {
                                 hasPop = true;
-                                value = value.sliced(4);
+                                value = value.mid(4);
                             }
                             if (hasPop && !value.isEmpty()) {
-                                value = value.sliced(1);
+                                value = value.mid(1);
                             }
-                            if (!value.isEmpty() && -1 == value.indexOf(u"##"_sv)) {
+                            if (!value.isEmpty() && -1 == value.indexOf(QStringLiteral("##"))) {
                                 m_contextRefs[value.toString()]++;
                             }
                         }
@@ -2990,7 +3008,8 @@ public:
                     m_keywords.clear();
                     m_inList = true;
                 }
-                m_data += u'<' % tagName;
+                m_data += u'<';
+                m_data += tagName.toString();
                 const auto attrs = xml.attributes();
                 for (const auto &attr : attrs) {
                     auto name = attr.name();
@@ -3012,9 +3031,11 @@ public:
                 std::sort(m_keywords.begin(), m_keywords.end());
                 m_keywords.erase(std::unique(m_keywords.begin(), m_keywords.end()), m_keywords.end());
                 for (const auto &item : m_keywords) {
-                    m_data += item.isIncludeTag ? u"<include>"_sv : u"<item>"_sv;
+                    m_data += item.isIncludeTag ? QStringLiteral("<include>")
+                                                : QStringLiteral("<item>");
                     writeXmlText(m_data, item.text);
-                    m_data += item.isIncludeTag ? u"</include>"_sv : u"</item>"_sv;
+                    m_data += item.isIncludeTag ? QStringLiteral("</include>")
+                                                : QStringLiteral("</item>");
                 }
             } else if (m_inContexts && !m_contexts.empty() && tagName == u"contexts"_sv) {
                 m_inContexts = false;
@@ -3035,9 +3056,11 @@ public:
 
             QString &out = m_inContexts && !m_contexts.empty() ? m_contexts.back().data : m_data;
             if (m_hasElems.back()) {
-                out += u"</"_sv % tagName % u'>';
+                out += QStringLiteral("</");
+                out += tagName.toString();
+                out += u'>';
             } else {
-                out += u"/>"_sv;
+                out += QStringLiteral("/>");
             }
             m_hasElems.pop_back();
             break;
@@ -3070,14 +3093,14 @@ private:
     {
         for (const QChar &c : text) {
             if (c == u'<') {
-                out += u"&lt;"_sv;
+                out += QStringLiteral("&lt;");
             } else if (c == u'&') {
-                out += u"&amp;"_sv;
+                out += QStringLiteral("&amp;");
             } else if (escapeDQ && c == u'"') {
-                out += u"&#34;"_sv;
+                out += QStringLiteral("&#34;");
             } else if (c == u'\t') {
                 // non-space whitespace character in an attribute is remplaced with space...
-                out += u"&#9;"_sv;
+                out += QStringLiteral("&#9;");
             } else {
                 out += c;
             }
@@ -3157,18 +3180,26 @@ private:
                 break;
             }
             if (!ignoreAttr) {
-                out += u' ' % attrName % u"=\""_sv % (b ? u'1' : u'0') % u'"';
+                out += u' ';
+                out += attrName.toString();
+                out += QStringLiteral("=\"");
+                out += b ? u'1' : u'0';
+                out += u'"';
             }
         } else {
             const bool hasDQ = value.contains(u'"');
             // attribute in double quotes when the value does not contain " or contains " and '
             if (!hasDQ || value.contains(u'\'')) {
-                out += u' ' % attrName % u"=\""_sv;
+                out += u' ';
+                out += attrName.toString();
+                out += QStringLiteral("=\"");
                 writeXmlText(out, value, hasDQ);
                 out += u'"';
                 // attribute in single quotes because the value contains "
             } else {
-                out += u' ' % attrName % u"='"_sv;
+                out += u' ';
+                out += attrName.toString();
+                out += QStringLiteral("='");
                 writeXmlText(out, value);
                 out += u'\'';
             }
@@ -3239,7 +3270,15 @@ private:
         QString text;
         bool isIncludeTag;
 
-        std::strong_ordering operator<=>(const Item &other) const = default;
+        // Qt 5 has no QString operator<=>, so spell out the ordering explicitly
+        bool operator<(const Item &other) const
+        {
+            return text < other.text || (text == other.text && isIncludeTag < other.isIncludeTag);
+        }
+        bool operator==(const Item &other) const
+        {
+            return text == other.text && isIncludeTag == other.isIncludeTag;
+        }
     };
     QString m_data = u"<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE language>"_s;
     std::vector<Context> m_contexts;
@@ -3298,7 +3337,7 @@ QStringList readListing(const QString &fileName)
 bool checkExtensions(QStringView extensions)
 {
     // get list of extensions
-    const QList<QStringView> extensionParts = extensions.split(u';', Qt::SkipEmptyParts);
+    const auto extensionParts = extensions.split(u';', Qt::SkipEmptyParts);
 
     // ok if empty
     if (extensionParts.isEmpty()) {
@@ -3504,7 +3543,7 @@ int main(int argc, char *argv[])
 
     // check compressed file
     HlFilesChecker filesChecker2;
-    const QString compressedDir = app.arguments().at(4) + u"/"_sv;
+    const QString compressedDir = app.arguments().at(4) + QLatin1Char('/');
     for (const auto &compressedFile : std::as_const(compressedFiles)) {
         const auto outFileName = compressedDir + compressedFile.fileName;
         auto utf8Data = compressedFile.xmlData.toUtf8();
@@ -3532,9 +3571,10 @@ int main(int argc, char *argv[])
         while (!xml.atEnd()) {
             if (xml.readNext() == QXmlStreamReader::TokenType::StartElement && xml.name() == u"language"_sv) {
                 const auto attrs = xml.attributes();
-                const auto version = attrs.value(u"kateversion"_sv);
-                const QString hlName = attrs.value(u"name"_sv).toString();
-                const QString hlAlternativeNames = attrs.value(u"alternativeNames"_sv).toString();
+                const auto version = attrs.value(QStringLiteral("kateversion"));
+                const QString hlName = attrs.value(QStringLiteral("name")).toString();
+                const QString hlAlternativeNames =
+                    attrs.value(QStringLiteral("alternativeNames")).toString();
                 filesChecker2.setDefinition(version, outFileName, hlName, hlAlternativeNames.split(u';', Qt::SkipEmptyParts), compressedFile.generated);
             }
             filesChecker2.processElement(xml);
