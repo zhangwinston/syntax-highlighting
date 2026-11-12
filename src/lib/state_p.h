@@ -90,9 +90,12 @@ inline std::size_t qHash(const StateData::StackValue &stackValue, std::size_t se
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     return qHashMulti(seed, stackValue.context, stackValue.captures);
 #else
+    // Qualify ::qHash: unqualified lookup stops at the KSyntaxHighlighting
+    // overloads below and never reaches Qt's global ones (pointers and
+    // integers have no associated namespaces for ADL).
     return qHashRange(stackValue.captures.begin(),
                       stackValue.captures.end(),
-                      qHash(stackValue.context, seed));
+                      ::qHash(stackValue.context, seed));
 #endif
 }
 
@@ -101,8 +104,8 @@ inline std::size_t qHash(const StateData &k, std::size_t seed = 0)
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     return qHashMulti(seed, k.m_defId, qHashRange(k.m_contextStack.begin(), k.m_contextStack.end(), seed));
 #else
-    return qHash(qHashRange(k.m_contextStack.begin(), k.m_contextStack.end(), seed),
-                 qHash(static_cast<ulong>(k.m_defId), seed));
+    return ::qHash(qHashRange(k.m_contextStack.begin(), k.m_contextStack.end(), seed),
+                   ::qHash(static_cast<ulong>(k.m_defId), seed));
 #endif
 }
 }
