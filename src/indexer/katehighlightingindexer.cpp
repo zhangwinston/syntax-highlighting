@@ -218,6 +218,21 @@ static QString operator""_s(const char16_t *str, std::size_t size)
 namespace
 {
 
+// Qt 5 QList<T> stores elements larger than a pointer indirectly (one heap
+// allocation per element), so the address difference between two elements is
+// meaningless there; Qt 6 QList is always contiguous. Resolve element indexes
+// by scanning, which is correct on both.
+template<typename T>
+int indexOfElement(const QList<T> &list, const T &element)
+{
+    for (int i = 0; i < list.size(); ++i) {
+        if (&list.at(i) == &element) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 struct KateVersion {
     uint majorRevision;
     uint minorRevision;
@@ -1619,7 +1634,7 @@ private:
 
             if (rule.isDotRegex) {
                 // search next rule with same column or firstNonSpace
-                int i = &rule - &context.rules.first() + 1;
+                int i = indexOfElement(context.rules, rule) + 1;
                 const bool hasColumn = (rule.column != -1);
                 const bool hasFirstNonSpace = (rule.firstNonSpace == XmlBool::True);
                 const bool isSpecial = (hasColumn || hasFirstNonSpace);
@@ -1709,7 +1724,17 @@ private:
         if (!regexp.isValid()) {
             qWarning() << filename << "line" << line << "broken regex:" << pattern << "problem:" << regexp.errorString() << "at offset"
                        << regexp.patternErrorOffset();
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
             return false;
+#else
+            // Upstream syntax definitions may rely on constructs that need a
+            // recent PCRE2 (variable-length lookbehind needs >= 10.43). Qt 5
+            // links the system PCRE2, which can be older (EL8 ships 10.32)
+            // and rejects them. The highlighting engine skips rules whose
+            // regex fails to compile, so on Qt 5 only warn instead of
+            // failing data generation; the Qt 6 build keeps the full gate.
+            return true;
+#endif
         }
 
         // catch possible case typos: [A-z] or [a-Z]
@@ -2091,7 +2116,7 @@ private:
         // Iterates over all the rules, including those in includedRules
         struct RuleIterator {
             RuleIterator(const QList<ObservableRule> &rules, const ObservableRule &endRule)
-                : m_end(&endRule - &rules.first())
+                : m_end(indexOfElement(rules, endRule))
                 , m_rules(rules)
             {
             }
