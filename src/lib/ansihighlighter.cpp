@@ -20,6 +20,12 @@
 #include <QIODevice>
 #include <QTextStream>
 
+// MSVC's UCRT only defines M_PI when _USE_MATH_DEFINES is visible before
+// <cmath>; libstdc++ and libc++ define it unconditionally, so this is inert
+// on GCC/Clang builds.
+#ifndef _USE_MATH_DEFINES
+#define _USE_MATH_DEFINES
+#endif
 #include <cmath>
 #include <vector>
 
